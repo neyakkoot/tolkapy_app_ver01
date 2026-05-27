@@ -6,7 +6,7 @@
 
 ## 🌐 Live Demo
 
-https://tolkapywebappnewver1.streamlit.app/
+https://tolkapyapp.streamlit.app/
 
 ---
 
