@@ -210,7 +210,7 @@ def display_result(res, title="ஆய்வு முடிவு"):
     if res:
         st.markdown(f"""<div class="result-card"><strong>{title}:</strong><br>{res}</div>""", unsafe_allow_html=True)
 
-# ==================== 3. காட்சிப்படுத்துதல் சார்புகள் (Visualization) ====================
+# ==================== 3. Panels - காட்சிப்படுத்துதல் சார்புகள் (Visualization) ====================
 
 def create_frequency_histogram(text_input=None):
     if not text_input:
@@ -454,11 +454,29 @@ with tab4:
         
         if st.button("புணர்க்க", key="b5"):
             if n_mozhi3 and m_mozhi3 and v_mozhi3:
-                res3 = get([n_mozhi3, m_mozhi3, v_mozhi3])
-                formatted_res3 = punarchi_result_formatter(res3)
-                if formatted_res3: display_result(formatted_res3, "புணர்ந்த வடிவம்")
-                else: st.info(f"புணர்ச்சி வடிவங்கள் கிடைக்கவில்லை: {n_mozhi3} + {m_mozhi3} + {v_mozhi3}")
-            else: st.warning("மூன்று சொற்களையும் முறையாக உள்ளிடவும்.")
+                # [முக்கியத் திருத்தம்]: இரு கட்டப் புணர்ச்சி முறை (Two-Stage Formatting)
+                # கட்டம் 1: மரம் + அத்து -> மரத்து எனப் புணர்தல்
+                stage1 = get([n_mozhi3, m_mozhi3])
+                stage1_formatted = punarchi_result_formatter(stage1)
+                
+                if not stage1_formatted:
+                    stage1_formatted = n_mozhi3 + m_mozhi3
+                
+                # கட்டம் 2: மரத்து + ஐ -> மரத்தை எனப் புணர்தல்
+                final_res = get([stage1_formatted, v_mozhi3])
+                formatted_res3 = punarchi_result_formatter(final_res)
+                
+                if formatted_res3: 
+                    display_result(formatted_res3, "புணர்ந்த வடிவம்")
+                else: 
+                    # நூலகத் தர்க்க வழுக்களுக்கான இயல்புத் தமிழ் மாற்றுத் திருத்தம் (Fallback Correction)
+                    if stage1_formatted.endswith("து") and v_mozhi3 == "ஐ":
+                        fallback_word = stage1_formatted[:-2] + "த்தை"
+                        display_result(fallback_word, "புணர்ந்த வடிவம்")
+                    else:
+                        st.info(f"புணர்ச்சி வடிவங்கள் கிடைக்கவில்லை: {n_mozhi3} + {m_mozhi3} + {v_mozhi3}")
+            else: 
+                st.warning("மூன்று சொற்களையும் முறையாக உள்ளிடவும்.")
 
 # Tab 5: காட்சிப்படுத்துதல்
 with tab5:
