@@ -186,7 +186,7 @@ def rule1(option, word_m):
 def word_starting_checker(option, word):
     all_rules = {
         "உயிர் வரிசை": uyirezhuthu_check, "க வரிசை": uyirmei_ka_check, "ச வரிசை": uyirmei_sa_check,
-        "ஞ வரிசை": uyirmei_nga_check, "த வரிசை": uyirmei_ta_check, "ந வரிசை": uyirmei_na_check,
+        "ங வரிசை": uyirmei_nga_check, "த வரிசை": uyirmei_ta_check, "ந வரிசை": uyirmei_na_check,
         "ப வரிசை": uyirmei_pa_check, "ம வரிசை": uyirmei_ma_check, "ய வரிசை": uyirmei_ya_check,
         "வ வரிசை": uyirmei_va_check
     }
@@ -202,9 +202,20 @@ def word_ending_checker(option, word):
     return all_rules[option](word)
 
 def punarchi_result_formatter(res):
-    if res and len(res) > 0:
-        return res[0][0] if isinstance(res[0], list) else res[0]
-    return None
+    if res is None:
+        return None
+    if isinstance(res, str):
+        return res
+    if isinstance(res, tuple):
+        res = list(res)
+    if isinstance(res, list):
+        if len(res) == 0:
+            return None
+        first = res[0]
+        if isinstance(first, list) and len(first) > 0:
+            return first[0]
+        return first
+    return str(res)
 
 def display_result(res, title="ஆய்வு முடிவு"):
     if res:
@@ -392,7 +403,7 @@ with tab2:
     with col1:
         word_m2 = st.text_input("சொல்லை உள்ளிடவும்:", key="m2", placeholder="எ.கா: கல்வி")
     with col2:
-        option2 = st.selectbox('விதியைத் தெரிவுசெய்க ', ("உயிர் வரிசை", "க வரிசை", "ச வரிசை", "ஞ வரிசை", "த வரிசை", "ந வரிசை", "ப வரிசை", "ம வரிசை", "ய வரிசை", "வ வரிசை"), key="sb_m2")
+        option2 = st.selectbox('விதியைத் தெரிவுசெய்க ', ("உயிர் வரிசை", "க வரிசை", "ச வரிசை", "ங வரிசை", "த வரிசை", "ந வரிசை", "ப வரிசை", "ம வரிசை", "ய வரிசை", "வ வரிசை"), key="sb_m2")
     
     if st.button("ஆராய்க", key="b2"):
         if word_m2:
@@ -471,7 +482,8 @@ with tab4:
                 else: 
                     # நூலகத் தர்க்க வழுக்களுக்கான இயல்புத் தமிழ் மாற்றுத் திருத்தம் (Fallback Correction)
                     if stage1_formatted.endswith("து") and v_mozhi3 == "ஐ":
-                        fallback_word = stage1_formatted[:-2] + "த்தை"
+                        root = stage1_formatted.removesuffix("து")
+                        fallback_word = root + "த்தை"
                         display_result(fallback_word, "புணர்ந்த வடிவம்")
                     else:
                         st.info(f"புணர்ச்சி வடிவங்கள் கிடைக்கவில்லை: {n_mozhi3} + {m_mozhi3} + {v_mozhi3}")
