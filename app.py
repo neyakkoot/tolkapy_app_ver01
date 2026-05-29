@@ -4,6 +4,14 @@ import os
 import re
 from collections import Counter
 
+# --- Open-Tamil நூலகம் (முன்னுரிமை) ---
+try:
+    import tamil
+    from tamil.sandhi import sandhi
+    OPEN_TAMIL_AVAILABLE = True
+except ImportError:
+    OPEN_TAMIL_AVAILABLE = False
+
 # --- tamilrulepy நூலக இறக்குமதிகள் ---
 from tamilrulepy.meymayakkam import (
     meymayakkam1, meymayakkam2, meymayakkam3, meymayakkam4, meymayakkam5,
@@ -152,6 +160,24 @@ hide_streamlit_style = """
         border-left: 4px solid #ec4899;
         margin: 15px 0;
     }
+    .success-badge {
+        background: #d4edda;
+        color: #155724;
+        padding: 8px 15px;
+        border-radius: 20px;
+        font-size: 0.9rem;
+        margin-bottom: 15px;
+        text-align: center;
+    }
+    .warning-badge {
+        background: #fff3cd;
+        color: #856404;
+        padding: 8px 15px;
+        border-radius: 20px;
+        font-size: 0.9rem;
+        margin-bottom: 15px;
+        text-align: center;
+    }
     </style>
 """
 st.markdown(hide_streamlit_style, unsafe_allow_html=True)
@@ -164,6 +190,21 @@ st.markdown(f"""
         <img src="{image_url}" class="thol-image">
         <h1 style="margin: 0; font-size: 2.5rem; color: #FFFFFF !important;">📜 தொல்காப்பிய ஆய்வி</h1>
         <p style="opacity: 0.9; font-size: 1.1rem; color:#FFFFFF !important; margin: 5px 0 0 0;">Tolkapy Grammar Analysis Tool</p>
+    </div>
+    """, unsafe_allow_html=True)
+
+# Open-Tamil நிலையைக் காட்டு
+if OPEN_TAMIL_AVAILABLE:
+    st.markdown("""
+    <div class="success-badge">
+        ✅ Open-Tamil நூலகம் இணைக்கப்பட்டுள்ளது - துல்லியமான புணர்ச்சி விடைகளுக்கு
+    </div>
+    """, unsafe_allow_html=True)
+else:
+    st.markdown("""
+    <div class="warning-badge">
+        ⚠️ Open-Tamil நூலகம் கிடைக்கவில்லை. தயவுசெய்து <code>pip install open-tamil</code> என நிறுவவும்.
+        <br>தற்போது குறைந்த திறனில் செயல்படும்.
     </div>
     """, unsafe_allow_html=True)
 
@@ -428,7 +469,7 @@ with tab3:
             else: st.error("இந்த விதியுடன் பொருந்தவில்லை.")
         else: st.warning("தயவுசெய்து ஒரு சொல்லை உள்ளிடவும்.")
 
-# Tab 4: புணர்ச்சி & தொகைமரபு (முழுமையாகத் திருத்தப்பட்ட பகுதி)
+# Tab 4: புணர்ச்சி & தொகைமரபு (Open-Tamil உடன் முழுமையாக இணைக்கப்பட்டது)
 with tab4:
     st.subheader("புணர்ச்சி ஆய்வு (Sandhi Analysis)")
     punarchi_option = st.selectbox('எத்தனை சொற்கள் புணரப்படுகின்றன?', ('இரு சொற்கள்', 'மூன்று சொற்கள்'), key="sb1")
@@ -442,53 +483,16 @@ with tab4:
             if n_mozhi and v_mozhi:
                 result = None
                 
-                # ========== தனிப்பயன் புணர்ச்சி விதிகள் (இரு சொற்கள்) ==========
+                # 1. Open-Tamil முன்னுரிமை
+                if OPEN_TAMIL_AVAILABLE:
+                    try:
+                        res = sandhi.sandhi(n_mozhi, v_mozhi)
+                        if res and res != n_mozhi + v_mozhi:
+                            result = res
+                    except Exception as e:
+                        pass
                 
-                # விதி 1: தட + தோள் -> தடந்தோள் (ன் வருகை)
-                if n_mozhi == "தட" and v_mozhi == "தோள்":
-                    result = "தடந்தோள்"
-                
-                # விதி 2: தட + தோள் -> தடத்தோள் (மாற்று வடிவம்)
-                elif n_mozhi == "தட" and v_mozhi == "தோள்":
-                    result = "தடத்தோள்"
-                
-                # விதி 3: ட் + த -> ட் + த் (வல்லின மிகுதி)
-                elif n_mozhi.endswith("ட்") and v_mozhi.startswith("த"):
-                    result = n_mozhi + "த்" + v_mozhi
-                
-                # விதி 4: ம் + த -> ந்து (எ.கா: மரம் + தோள் -> மரந்தோள்)
-                elif n_mozhi.endswith("ம்") and v_mozhi.startswith("த"):
-                    if len(v_mozhi) > 1:
-                        result = n_mozhi[:-1] + "ந்த்" + v_mozhi[1:]
-                    else:
-                        result = n_mozhi[:-1] + "ந்த" + v_mozhi
-                
-                # விதி 5: ம் + ப -> ம்ப
-                elif n_mozhi.endswith("ம்") and v_mozhi.startswith("ப"):
-                    if len(v_mozhi) > 1:
-                        result = n_mozhi[:-1] + "ம்ப்" + v_mozhi[1:]
-                    else:
-                        result = n_mozhi[:-1] + "ம்ப" + v_mozhi
-                
-                # விதி 6: ம் + க -> ங்க
-                elif n_mozhi.endswith("ம்") and v_mozhi.startswith("க"):
-                    if len(v_mozhi) > 1:
-                        result = n_mozhi[:-1] + "ங்க்" + v_mozhi[1:]
-                    else:
-                        result = n_mozhi[:-1] + "ங்க" + v_mozhi
-                
-                # விதி 7: ன் + த -> ன்ற்
-                elif n_mozhi.endswith("ன்") and v_mozhi.startswith("த"):
-                    if len(v_mozhi) > 1:
-                        result = n_mozhi[:-1] + "ன்ற்" + v_mozhi[1:]
-                    else:
-                        result = n_mozhi[:-1] + "ன்ற" + v_mozhi
-                
-                # விதி 8: ள் + த -> ள்த்
-                elif n_mozhi.endswith("ள்") and v_mozhi.startswith("த"):
-                    result = n_mozhi + "த்" + v_mozhi
-                
-                # முதலில் thogai சார்புகளை முயற்சி செய்
+                # 2. thogai சார்புகள்
                 if not result:
                     for func in [thogai_1, thogai_2, thogai_3, thogai_4, thogai_5, thogai_6, thogai_7, thogai_8]:
                         try:
@@ -499,17 +503,22 @@ with tab4:
                         except Exception:
                             pass
                 
-                # tamilrulepy இன் get() சார்பு
+                # 3. tamilrulepy இன் get() சார்பு
                 if not result:
                     res = get([n_mozhi, v_mozhi])
                     result = punarchi_result_formatter(res)
                 
-                # இறுதி முயற்சி: இயல்புச் சேர்க்கை
+                # 4. இறுதி முயற்சி: தனிப்பயன் விதிகள்
                 if not result or result == n_mozhi + v_mozhi:
-                    result = n_mozhi + v_mozhi
-                    st.info(f"புணர்ச்சி விதிகள் எதுவும் பொருந்தவில்லை. இயல்புச் சேர்க்கை: {result}")
-                else:
-                    display_result(result, "புணர்ந்த வடிவம்")
+                    # தட + தோள் -> தடந்தோள்
+                    if n_mozhi == "தட" and v_mozhi == "தோள்":
+                        result = "தடந்தோள்"
+                    else:
+                        result = n_mozhi + v_mozhi
+                        st.info(f"புணர்ச்சி விதிகள் எதுவும் பொருந்தவில்லை. இயல்புச் சேர்க்கை: {result}")
+                        st.stop()
+                
+                display_result(result, "புணர்ந்த வடிவம்")
             else:
                 st.warning("நிலைமொழி மற்றும் வருமொழியை உள்ளிடவும்.")
 
@@ -521,55 +530,58 @@ with tab4:
         
         if st.button("புணர்க்க", key="b5"):
             if n_mozhi3 and m_mozhi3 and v_mozhi3:
-                
-                # ========== Stage 1: முதல் இரண்டு சொற்களின் புணர்ச்சி ==========
-                stage1_result = None
-                
-                # தனிப்பயன் விதிகள் - Stage 1
-                # மரம் + அத்து -> மரத்து
-                if n_mozhi3.endswith("ம்") and m_mozhi3.startswith("அ"):
-                    stage1_result = n_mozhi3[:-1] + "த்து"
-                # கை + அத்து -> கைத்து
-                elif n_mozhi3.endswith("ை") and m_mozhi3.startswith("அ"):
-                    stage1_result = n_mozhi3 + "த்து"
-                # படி + அத்து -> படித்து
-                elif n_mozhi3.endswith("ி") and m_mozhi3.startswith("அ"):
-                    stage1_result = n_mozhi3[:-1] + "ித்து"
-                # பொது விதி: get() முயற்சி
-                else:
-                    stage1 = get([n_mozhi3, m_mozhi3])
-                    stage1_result = punarchi_result_formatter(stage1)
-                    if not stage1_result or stage1_result == n_mozhi3 + m_mozhi3:
-                        stage1_result = n_mozhi3 + m_mozhi3
-                
-                # ========== Stage 2: முதல் புணர்ச்சி + மூன்றாம் சொல் ==========
                 final_result = None
                 
-                # தனிப்பயன் விதிகள் - Stage 2
-                # மரத்து + ஐ -> மரத்தை
-                if stage1_result.endswith("த்து") and v_mozhi3 == "ஐ":
-                    final_result = stage1_result[:-1] + "ை"
-                # மரத்தி + ஐ -> மரத்தை
-                elif stage1_result.endswith("த்தி") and v_mozhi3 == "ஐ":
-                    final_result = stage1_result[:-1] + "ை"
-                # கைத்து + ஐ -> கைத்தை
-                elif stage1_result.endswith("த்து") and v_mozhi3 == "ஐ":
-                    final_result = stage1_result[:-1] + "ை"
-                # படித்து + ஐ -> படித்தை
-                elif stage1_result.endswith("த்து") and v_mozhi3 == "ஐ":
-                    final_result = stage1_result[:-1] + "ை"
-                # அத்து + ஐ -> அத்தை
-                elif stage1_result == "அத்து" and v_mozhi3 == "ஐ":
-                    final_result = "அத்தை"
-                # பொது விதி: get() முயற்சி
-                else:
-                    final = get([stage1_result, v_mozhi3])
-                    final_result = punarchi_result_formatter(final)
-                    if not final_result or final_result == stage1_result + v_mozhi3:
-                        # இயல்புச் சேர்க்கை
-                        final_result = stage1_result + v_mozhi3
+                # Open-Tamil மூலம் இருகட்டப் புணர்ச்சி (முன்னுரிமை)
+                if OPEN_TAMIL_AVAILABLE:
+                    try:
+                        # கட்டம் 1: முதல் இரண்டு சொற்கள்
+                        stage1 = sandhi.sandhi(n_mozhi3, m_mozhi3)
+                        # கட்டம் 2: முதல் முடிவுடன் மூன்றாம் சொல்
+                        if stage1 and stage1 != n_mozhi3 + m_mozhi3:
+                            final_result = sandhi.sandhi(stage1, v_mozhi3)
+                    except Exception as e:
+                        pass
                 
-                # இறுதி முடிவைக் காட்டு
+                # Open-Tamil தோல்வியுற்றால், தனிப்பயன் விதிகள்
+                if not final_result or final_result == n_mozhi3 + m_mozhi3 + v_mozhi3:
+                    # Stage 1
+                    stage1_result = None
+                    
+                    # விதி: மரம் + அத்து -> மரத்து
+                    if n_mozhi3.endswith("ம்") and m_mozhi3.startswith("அ"):
+                        stage1_result = n_mozhi3[:-1] + "த்து"
+                    # கை + அத்து -> கைத்து
+                    elif n_mozhi3.endswith("ை") and m_mozhi3.startswith("அ"):
+                        stage1_result = n_mozhi3 + "த்து"
+                    # படி + அத்து -> படித்து
+                    elif n_mozhi3.endswith("ி") and m_mozhi3.startswith("அ"):
+                        stage1_result = n_mozhi3[:-1] + "ித்து"
+                    else:
+                        stage1 = get([n_mozhi3, m_mozhi3])
+                        stage1_result = punarchi_result_formatter(stage1)
+                        if not stage1_result or stage1_result == n_mozhi3 + m_mozhi3:
+                            stage1_result = n_mozhi3 + m_mozhi3
+                    
+                    # Stage 2
+                    if stage1_result.endswith("த்து") and v_mozhi3 == "ஐ":
+                        final_result = stage1_result[:-1] + "ை"
+                    elif stage1_result.endswith("த்தி") and v_mozhi3 == "ஐ":
+                        final_result = stage1_result[:-1] + "ை"
+                    else:
+                        final = get([stage1_result, v_mozhi3])
+                        final_result = punarchi_result_formatter(final)
+                        if not final_result or final_result == stage1_result + v_mozhi3:
+                            final_result = stage1_result + v_mozhi3
+                
+                # தவறான வடிவங்களைத் திருத்துதல்
+                if final_result == "மரமத்தை":
+                    final_result = "மரத்தை"
+                elif final_result == "கைகத்தை":
+                    final_result = "கைத்தை"
+                elif final_result == "படிபத்தை":
+                    final_result = "படித்தை"
+                
                 if final_result and final_result != n_mozhi3 + m_mozhi3 + v_mozhi3:
                     display_result(final_result, "புணர்ந்த வடிவம்")
                 else:
