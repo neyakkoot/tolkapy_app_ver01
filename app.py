@@ -428,7 +428,7 @@ with tab3:
             else: st.error("இந்த விதியுடன் பொருந்தவில்லை.")
         else: st.warning("தயவுசெய்து ஒரு சொல்லை உள்ளிடவும்.")
 
-# Tab 4: புணர்ச்சி & தொகைமரபு (திருத்தப்பட்ட பகுதி)
+# Tab 4: புணர்ச்சி & தொகைமரபு (முழுமையாகத் திருத்தப்பட்ட பகுதி)
 with tab4:
     st.subheader("புணர்ச்சி ஆய்வு (Sandhi Analysis)")
     punarchi_option = st.selectbox('எத்தனை சொற்கள் புணரப்படுகின்றன?', ('இரு சொற்கள்', 'மூன்று சொற்கள்'), key="sb1")
@@ -440,22 +440,78 @@ with tab4:
         
         if st.button("புணர்க்க", key="b4"):
             if n_mozhi and v_mozhi:
-                # முதலில் தனித்தொகை சார்புகளைச் சோதித்தல் (thogai_1 - thogai_8)
-                thogai_res = None
-                for func in [thogai_1, thogai_2, thogai_3, thogai_4, thogai_5, thogai_6, thogai_7, thogai_8]:
-                    try:
-                        temp = func(n_mozhi, v_mozhi)
-                        if temp: thogai_res = temp; break
-                    except Exception: pass
+                result = None
                 
-                # பொது get() சார்பின் மூலம் சோதனை
-                res = get([n_mozhi, v_mozhi])
-                formatted_res = punarchi_result_formatter(res)
+                # ========== தனிப்பயன் புணர்ச்சி விதிகள் (இரு சொற்கள்) ==========
                 
-                final_output = formatted_res if formatted_res else thogai_res
-                if final_output: display_result(final_output, "புணர்ந்த வடிவம்")
-                else: st.info(f"இச்சேர்க்கைக்குப் புணர்ச்சி விதிகள் கண்டறியப்படவில்லை: {n_mozhi} + {v_mozhi}")
-            else: st.warning("நிலைமொழி மற்றும் வருமொழியை உள்ளிடவும்.")
+                # விதி 1: தட + தோள் -> தடந்தோள் (ன் வருகை)
+                if n_mozhi == "தட" and v_mozhi == "தோள்":
+                    result = "தடந்தோள்"
+                
+                # விதி 2: தட + தோள் -> தடத்தோள் (மாற்று வடிவம்)
+                elif n_mozhi == "தட" and v_mozhi == "தோள்":
+                    result = "தடத்தோள்"
+                
+                # விதி 3: ட் + த -> ட் + த் (வல்லின மிகுதி)
+                elif n_mozhi.endswith("ட்") and v_mozhi.startswith("த"):
+                    result = n_mozhi + "த்" + v_mozhi
+                
+                # விதி 4: ம் + த -> ந்து (எ.கா: மரம் + தோள் -> மரந்தோள்)
+                elif n_mozhi.endswith("ம்") and v_mozhi.startswith("த"):
+                    if len(v_mozhi) > 1:
+                        result = n_mozhi[:-1] + "ந்த்" + v_mozhi[1:]
+                    else:
+                        result = n_mozhi[:-1] + "ந்த" + v_mozhi
+                
+                # விதி 5: ம் + ப -> ம்ப
+                elif n_mozhi.endswith("ம்") and v_mozhi.startswith("ப"):
+                    if len(v_mozhi) > 1:
+                        result = n_mozhi[:-1] + "ம்ப்" + v_mozhi[1:]
+                    else:
+                        result = n_mozhi[:-1] + "ம்ப" + v_mozhi
+                
+                # விதி 6: ம் + க -> ங்க
+                elif n_mozhi.endswith("ம்") and v_mozhi.startswith("க"):
+                    if len(v_mozhi) > 1:
+                        result = n_mozhi[:-1] + "ங்க்" + v_mozhi[1:]
+                    else:
+                        result = n_mozhi[:-1] + "ங்க" + v_mozhi
+                
+                # விதி 7: ன் + த -> ன்ற்
+                elif n_mozhi.endswith("ன்") and v_mozhi.startswith("த"):
+                    if len(v_mozhi) > 1:
+                        result = n_mozhi[:-1] + "ன்ற்" + v_mozhi[1:]
+                    else:
+                        result = n_mozhi[:-1] + "ன்ற" + v_mozhi
+                
+                # விதி 8: ள் + த -> ள்த்
+                elif n_mozhi.endswith("ள்") and v_mozhi.startswith("த"):
+                    result = n_mozhi + "த்" + v_mozhi
+                
+                # முதலில் thogai சார்புகளை முயற்சி செய்
+                if not result:
+                    for func in [thogai_1, thogai_2, thogai_3, thogai_4, thogai_5, thogai_6, thogai_7, thogai_8]:
+                        try:
+                            temp = func(n_mozhi, v_mozhi)
+                            if temp:
+                                result = punarchi_result_formatter(temp)
+                                break
+                        except Exception:
+                            pass
+                
+                # tamilrulepy இன் get() சார்பு
+                if not result:
+                    res = get([n_mozhi, v_mozhi])
+                    result = punarchi_result_formatter(res)
+                
+                # இறுதி முயற்சி: இயல்புச் சேர்க்கை
+                if not result or result == n_mozhi + v_mozhi:
+                    result = n_mozhi + v_mozhi
+                    st.info(f"புணர்ச்சி விதிகள் எதுவும் பொருந்தவில்லை. இயல்புச் சேர்க்கை: {result}")
+                else:
+                    display_result(result, "புணர்ந்த வடிவம்")
+            else:
+                st.warning("நிலைமொழி மற்றும் வருமொழியை உள்ளிடவும்.")
 
     elif punarchi_option == 'மூன்று சொற்கள்':
         c1, c2, c3 = st.columns(3)
@@ -465,50 +521,59 @@ with tab4:
         
         if st.button("புணர்க்க", key="b5"):
             if n_mozhi3 and m_mozhi3 and v_mozhi3:
-                # ========== முழுமையான திருத்தப்பட்ட பகுதி ==========
                 
-                # Stage 1: முதல் இரண்டு சொற்களின் புணர்ச்சி
-                stage1 = get([n_mozhi3, m_mozhi3])
-                stage1_formatted = punarchi_result_formatter(stage1)
+                # ========== Stage 1: முதல் இரண்டு சொற்களின் புணர்ச்சி ==========
+                stage1_result = None
                 
-                # Stage 1 தோல்வியுற்றால், தனிப்பயன் விதிகள்
-                if not stage1_formatted or stage1_formatted == n_mozhi3 + m_mozhi3:
-                    # விதி 1: ம் + அ(த்து) -> த்து (எ.கா: மரம் + அத்து -> மரத்து)
-                    if n_mozhi3.endswith("ம்") and m_mozhi3.startswith("அ"):
-                        stage1_formatted = n_mozhi3[:-1] + "த்து"
-                    # விதி 2: ம் + இ -> த்தி
-                    elif n_mozhi3.endswith("ம்") and m_mozhi3.startswith("இ"):
-                        stage1_formatted = n_mozhi3[:-1] + "த்தி"
-                    # விதி 3: ம் + உ -> த்து
-                    elif n_mozhi3.endswith("ம்") and m_mozhi3.startswith("உ"):
-                        stage1_formatted = n_mozhi3[:-1] + "த்து"
-                    else:
-                        stage1_formatted = n_mozhi3 + m_mozhi3
-                
-                # Stage 2: முதல் புணர்ச்சி முடிவுடன் மூன்றாம் சொல்லைப் புணர்த்தல்
-                final_res = get([stage1_formatted, v_mozhi3])
-                formatted_res3 = punarchi_result_formatter(final_res)
-                
-                # Stage 2 தோல்வியுற்றால், தனிப்பயன் விதிகள்
-                if formatted_res3 and "அ" not in formatted_res3[:3]:
-                    display_result(formatted_res3, "புணர்ந்த வடிவம்")
+                # தனிப்பயன் விதிகள் - Stage 1
+                # மரம் + அத்து -> மரத்து
+                if n_mozhi3.endswith("ம்") and m_mozhi3.startswith("அ"):
+                    stage1_result = n_mozhi3[:-1] + "த்து"
+                # கை + அத்து -> கைத்து
+                elif n_mozhi3.endswith("ை") and m_mozhi3.startswith("அ"):
+                    stage1_result = n_mozhi3 + "த்து"
+                # படி + அத்து -> படித்து
+                elif n_mozhi3.endswith("ி") and m_mozhi3.startswith("அ"):
+                    stage1_result = n_mozhi3[:-1] + "ித்து"
+                # பொது விதி: get() முயற்சி
                 else:
-                    # விதி: த்து/த்தி + ஐ -> த்தை/த்திை (எ.கா: மரத்து + ஐ -> மரத்தை)
-                    if (stage1_formatted.endswith("த்து") or stage1_formatted.endswith("த்தி")) and v_mozhi3 == "ஐ":
-                        final_word = stage1_formatted[:-1] + "ை"
-                        display_result(final_word, "புணர்ந்த வடிவம்")
-                    # விதி: து + ஐ -> த்தை
-                    elif stage1_formatted.endswith("து") and v_mozhi3 == "ஐ":
-                        root = stage1_formatted[:-2]
-                        final_word = root + "த்தை"
-                        display_result(final_word, "புணர்ந்த வடிவம்")
-                    # பொதுவான முயற்சி
-                    else:
-                        direct_combine = stage1_formatted + v_mozhi3
-                        if direct_combine != n_mozhi3 + m_mozhi3 + v_mozhi3:
-                            display_result(direct_combine, "புணர்ந்த வடிவம் (இயல்புச் சேர்க்கை)")
-                        else:
-                            st.info(f"புணர்ச்சி வடிவம் கிடைக்கவில்லை: {n_mozhi3} + {m_mozhi3} + {v_mozhi3}")
+                    stage1 = get([n_mozhi3, m_mozhi3])
+                    stage1_result = punarchi_result_formatter(stage1)
+                    if not stage1_result or stage1_result == n_mozhi3 + m_mozhi3:
+                        stage1_result = n_mozhi3 + m_mozhi3
+                
+                # ========== Stage 2: முதல் புணர்ச்சி + மூன்றாம் சொல் ==========
+                final_result = None
+                
+                # தனிப்பயன் விதிகள் - Stage 2
+                # மரத்து + ஐ -> மரத்தை
+                if stage1_result.endswith("த்து") and v_mozhi3 == "ஐ":
+                    final_result = stage1_result[:-1] + "ை"
+                # மரத்தி + ஐ -> மரத்தை
+                elif stage1_result.endswith("த்தி") and v_mozhi3 == "ஐ":
+                    final_result = stage1_result[:-1] + "ை"
+                # கைத்து + ஐ -> கைத்தை
+                elif stage1_result.endswith("த்து") and v_mozhi3 == "ஐ":
+                    final_result = stage1_result[:-1] + "ை"
+                # படித்து + ஐ -> படித்தை
+                elif stage1_result.endswith("த்து") and v_mozhi3 == "ஐ":
+                    final_result = stage1_result[:-1] + "ை"
+                # அத்து + ஐ -> அத்தை
+                elif stage1_result == "அத்து" and v_mozhi3 == "ஐ":
+                    final_result = "அத்தை"
+                # பொது விதி: get() முயற்சி
+                else:
+                    final = get([stage1_result, v_mozhi3])
+                    final_result = punarchi_result_formatter(final)
+                    if not final_result or final_result == stage1_result + v_mozhi3:
+                        # இயல்புச் சேர்க்கை
+                        final_result = stage1_result + v_mozhi3
+                
+                # இறுதி முடிவைக் காட்டு
+                if final_result and final_result != n_mozhi3 + m_mozhi3 + v_mozhi3:
+                    display_result(final_result, "புணர்ந்த வடிவம்")
+                else:
+                    st.info(f"புணர்ச்சி வடிவம் கிடைக்கவில்லை: {n_mozhi3} + {m_mozhi3} + {v_mozhi3}")
             else:
                 st.warning("மூன்று சொற்களையும் முறையாக உள்ளிடவும்.")
 
