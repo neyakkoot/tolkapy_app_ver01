@@ -428,7 +428,7 @@ with tab3:
             else: st.error("இந்த விதியுடன் பொருந்தவில்லை.")
         else: st.warning("தயவுசெய்து ஒரு சொல்லை உள்ளிடவும்.")
 
-# Tab 4: புணர்ச்சி & தொகைமரபு
+# Tab 4: புணர்ச்சி & தொகைமரபு (திருத்தப்பட்ட பகுதி)
 with tab4:
     st.subheader("புணர்ச்சி ஆய்வு (Sandhi Analysis)")
     punarchi_option = st.selectbox('எத்தனை சொற்கள் புணரப்படுகின்றன?', ('இரு சொற்கள்', 'மூன்று சொற்கள்'), key="sb1")
@@ -465,29 +465,51 @@ with tab4:
         
         if st.button("புணர்க்க", key="b5"):
             if n_mozhi3 and m_mozhi3 and v_mozhi3:
-                # [முக்கியத் திருத்தம்]: இரு கட்டப் புணர்ச்சி முறை (Two-Stage Formatting)
-                # கட்டம் 1: மரம் + அத்து -> மரத்து எனப் புணர்தல்
+                # ========== முழுமையான திருத்தப்பட்ட பகுதி ==========
+                
+                # Stage 1: முதல் இரண்டு சொற்களின் புணர்ச்சி
                 stage1 = get([n_mozhi3, m_mozhi3])
                 stage1_formatted = punarchi_result_formatter(stage1)
                 
-                if not stage1_formatted:
-                    stage1_formatted = n_mozhi3 + m_mozhi3
+                # Stage 1 தோல்வியுற்றால், தனிப்பயன் விதிகள்
+                if not stage1_formatted or stage1_formatted == n_mozhi3 + m_mozhi3:
+                    # விதி 1: ம் + அ(த்து) -> த்து (எ.கா: மரம் + அத்து -> மரத்து)
+                    if n_mozhi3.endswith("ம்") and m_mozhi3.startswith("அ"):
+                        stage1_formatted = n_mozhi3[:-1] + "த்து"
+                    # விதி 2: ம் + இ -> த்தி
+                    elif n_mozhi3.endswith("ம்") and m_mozhi3.startswith("இ"):
+                        stage1_formatted = n_mozhi3[:-1] + "த்தி"
+                    # விதி 3: ம் + உ -> த்து
+                    elif n_mozhi3.endswith("ம்") and m_mozhi3.startswith("உ"):
+                        stage1_formatted = n_mozhi3[:-1] + "த்து"
+                    else:
+                        stage1_formatted = n_mozhi3 + m_mozhi3
                 
-                # கட்டம் 2: மரத்து + ஐ -> மரத்தை எனப் புணர்தல்
+                # Stage 2: முதல் புணர்ச்சி முடிவுடன் மூன்றாம் சொல்லைப் புணர்த்தல்
                 final_res = get([stage1_formatted, v_mozhi3])
                 formatted_res3 = punarchi_result_formatter(final_res)
                 
-                if formatted_res3: 
+                # Stage 2 தோல்வியுற்றால், தனிப்பயன் விதிகள்
+                if formatted_res3 and "அ" not in formatted_res3[:3]:
                     display_result(formatted_res3, "புணர்ந்த வடிவம்")
-                else: 
-                    # நூலகத் தர்க்க வழுக்களுக்கான இயல்புத் தமிழ் மாற்றுத் திருத்தம் (Fallback Correction)
-                    if stage1_formatted.endswith("து") and v_mozhi3 == "ஐ":
-                        root = stage1_formatted.removesuffix("து")
-                        fallback_word = root + "த்தை"
-                        display_result(fallback_word, "புணர்ந்த வடிவம்")
+                else:
+                    # விதி: த்து/த்தி + ஐ -> த்தை/த்திை (எ.கா: மரத்து + ஐ -> மரத்தை)
+                    if (stage1_formatted.endswith("த்து") or stage1_formatted.endswith("த்தி")) and v_mozhi3 == "ஐ":
+                        final_word = stage1_formatted[:-1] + "ை"
+                        display_result(final_word, "புணர்ந்த வடிவம்")
+                    # விதி: து + ஐ -> த்தை
+                    elif stage1_formatted.endswith("து") and v_mozhi3 == "ஐ":
+                        root = stage1_formatted[:-2]
+                        final_word = root + "த்தை"
+                        display_result(final_word, "புணர்ந்த வடிவம்")
+                    # பொதுவான முயற்சி
                     else:
-                        st.info(f"புணர்ச்சி வடிவங்கள் கிடைக்கவில்லை: {n_mozhi3} + {m_mozhi3} + {v_mozhi3}")
-            else: 
+                        direct_combine = stage1_formatted + v_mozhi3
+                        if direct_combine != n_mozhi3 + m_mozhi3 + v_mozhi3:
+                            display_result(direct_combine, "புணர்ந்த வடிவம் (இயல்புச் சேர்க்கை)")
+                        else:
+                            st.info(f"புணர்ச்சி வடிவம் கிடைக்கவில்லை: {n_mozhi3} + {m_mozhi3} + {v_mozhi3}")
+            else:
                 st.warning("மூன்று சொற்களையும் முறையாக உள்ளிடவும்.")
 
 # Tab 5: காட்சிப்படுத்துதல்
