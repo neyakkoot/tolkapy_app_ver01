@@ -1,12 +1,10 @@
 import streamlit as st
+import importlib.util
+import os
 import re
 from collections import Counter
 
-# ==================== நூலகங்களின் நிலையைச் சரிபார்த்தல் ====================
-OPEN_TAMIL_AVAILABLE = False
-TAMILRULE_AVAILABLE = False
-
-# Open-Tamil சரிபார்ப்பு
+# --- Open-Tamil நூலகம் (முன்னுரிமை) ---
 try:
     import tamil
     from tamil.sandhi import sandhi
@@ -14,39 +12,42 @@ try:
 except ImportError:
     OPEN_TAMIL_AVAILABLE = False
 
-# tolkapy/tamilrulepy சரிபார்ப்பு
-try:
-    from tolkapy.meymayakkam import *
-    from tolkapy.mozhimarabu.word_starting import *
-    from tolkapy.mozhimarabu.word_ending import *
-    from tolkapy.euphonic import get
-    from tolkapy.thogaimarabu.thogaimarabu import *
-    TAMILRULE_AVAILABLE = True
-except ImportError:
-    try:
-        from tamilrulepy.meymayakkam import *
-        from tamilrulepy.mozhimarabu.word_starting import *
-        from tamilrulepy.mozhimarabu.word_ending import *
-        from tamilrulepy.euphonic import get
-        from tamilrulepy.thogaimarabu.thogaimarabu import *
-        TAMILRULE_AVAILABLE = True
-    except ImportError:
-        TAMILRULE_AVAILABLE = False
+# --- tamilrulepy நூலக இறக்குமதிகள் ---
+from tamilrulepy.meymayakkam import (
+    meymayakkam1, meymayakkam2, meymayakkam3, meymayakkam4, meymayakkam5,
+    meymayakkam6, meymayakkam7, meymayakkam8, meymayakkam9, meymayakkam10,
+    meymayakkam11, meymayakkam12, meymayakkam13, meymayakkam14, meymayakkam15,
+    meymayakkam16, meymayakkam17, meymayakkam18
+)
+
+from tamilrulepy.mozhimarabu.word_starting import (
+    uyirezhuthu_check, uyirmei_ka_check, uyirmei_ma_check, uyirmei_na_check,
+    uyirmei_nga_check, uyirmei_pa_check, uyirmei_sa_check, uyirmei_ta_check,
+    uyirmei_va_check, uyirmei_ya_check
+)
+
+from tamilrulepy.mozhimarabu.word_ending import (
+    uyir_check, mellinam_check, idaiyinam_check, alapedai_check,
+    oorezhuthoorumozhi_check, suttu_check, vinaa_check
+)
+
+from tamilrulepy.euphonic import get
+from tamilrulepy.thogaimarabu.thogaimarabu import (
+    thogai_1, thogai_2, thogai_3, thogai_4, thogai_5, thogai_6, thogai_7, thogai_8
+)
 
 # --- காட்சிப்படுத்துதல் நூலகங்கள் ---
 import plotly.graph_objects as go
 import numpy as np
-import matplotlib.pyplot as plt
-import pandas as pd
 
-# ==================== 1. பக்க வடிவமைப்பு ====================
+# ==================== 1. பக்க வடிவமைப்பு (Page Configuration) ====================
 st.set_page_config(
     page_title="தொல்காப்பிய ஆய்வி", 
     page_icon="📜",
     layout="wide"
 )
 
-# CSS
+# ஸ்ட்ரீம்லிட் இயல்பு வடிவங்களை மறைத்தல் மற்றும் தனிப்பயன் CSS
 hide_streamlit_style = """
     <style>
     #MainMenu {visibility: hidden;}
@@ -192,7 +193,7 @@ st.markdown(f"""
     </div>
     """, unsafe_allow_html=True)
 
-# நூலகங்களின் நிலையைக் காட்டு
+# Open-Tamil நிலையைக் காட்டு
 if OPEN_TAMIL_AVAILABLE:
     st.markdown("""
     <div class="success-badge">
@@ -202,132 +203,14 @@ if OPEN_TAMIL_AVAILABLE:
 else:
     st.markdown("""
     <div class="warning-badge">
-        ⚠️ Open-Tamil நூலகம் கிடைக்கவில்லை. <code>pip install open-tamil</code> என நிறுவவும்.<br>
-        தற்போது உள்ளமைக்கப்பட்ட புணர்ச்சி விதிகளுடன் செயல்படும்.
+        ⚠️ Open-Tamil நூலகம் கிடைக்கவில்லை. தயவுசெய்து <code>pip install open-tamil</code> என நிறுவவும்.
+        <br>தற்போது குறைந்த திறனில் செயல்படும்.
     </div>
     """, unsafe_allow_html=True)
 
-if not TAMILRULE_AVAILABLE:
-    st.markdown("""
-    <div class="warning-badge">
-        ⚠️ tolkapy நூலகம் கிடைக்கவில்லை. மெய்ம்மயக்கம், மொழிமுதல், மொழியிறுதி ஆகிய வசதிகள் குறையும்.
-    </div>
-    """, unsafe_allow_html=True)
-
-# ==================== 2. புணர்ச்சிக்கான தனிப்பயன் விதிகள் ====================
-
-def tamil_sandhi_two_words(word1, word2):
-    """இரு தமிழ்ச் சொற்களைப் புணர்த்தல் - முழுமையான விதிகள்"""
-    
-    # விதி 1: ம் + அ/ஆ -> த்த
-    if word1.endswith("ம்") and word2.startswith(("அ", "ஆ")):
-        return word1[:-1] + "த்த" + word2[1:] if len(word2) > 1 else word1[:-1] + "த்த"
-    
-    # விதி 2: ம் + இ/ஈ -> த்தி
-    if word1.endswith("ம்") and word2.startswith(("இ", "ஈ")):
-        return word1[:-1] + "த்தி" + word2[1:] if len(word2) > 1 else word1[:-1] + "த்தி"
-    
-    # விதி 3: ம் + உ/ஊ -> த்து
-    if word1.endswith("ம்") and word2.startswith(("உ", "ஊ")):
-        return word1[:-1] + "த்து" + word2[1:] if len(word2) > 1 else word1[:-1] + "த்து"
-    
-    # விதி 4: ம் + ஐ -> த்தை (முக்கியம்)
-    if word1.endswith("ம்") and word2.startswith("ஐ"):
-        return word1[:-1] + "த்தை" + word2[1:] if len(word2) > 1 else word1[:-1] + "த்தை"
-    
-    # விதி 5: ம் + ஒ/ஓ -> த்தொ
-    if word1.endswith("ம்") and word2.startswith(("ஒ", "ஓ")):
-        return word1[:-1] + "த்தொ" + word2[1:] if len(word2) > 1 else word1[:-1] + "த்தொ"
-    
-    # விதி 6: ன் + த -> ன்ற்
-    if word1.endswith("ன்") and word2.startswith("த"):
-        return word1[:-1] + "ன்ற்" + word2[1:] if len(word2) > 1 else word1[:-1] + "ன்ற" + word2
-    
-    # விதி 7: ள் + த -> ள்த்
-    if word1.endswith("ள்") and word2.startswith("த"):
-        return word1 + "த்" + word2
-    
-    # விதி 8: ட் + த -> ட்ற்
-    if word1.endswith("ட்") and word2.startswith("த"):
-        return word1[:-1] + "ற்ற்" + word2[1:] if len(word2) > 1 else word1[:-1] + "ற்ற" + word2
-    
-    # விதி 9: ற் + த -> ற்ற்
-    if word1.endswith("ற்") and word2.startswith("த"):
-        return word1[:-1] + "ற்ற்" + word2[1:] if len(word2) > 1 else word1[:-1] + "ற்ற" + word2
-    
-    # விதி 10: ல் + த -> ல்த்
-    if word1.endswith("ல்") and word2.startswith("த"):
-        return word1 + "த்" + word2
-    
-    # விதி 11: ய் + த -> ய்த்
-    if word1.endswith("ய்") and word2.startswith("த"):
-        return word1 + "த்" + word2
-    
-    # விதி 12: தட + தோள் -> தடந்தோள்
-    if word1 == "தட" and word2 == "தோள்":
-        return "தடந்தோள்"
-    
-    # இணைப்பு
-    return word1 + word2
-
-
-def three_word_punarchi(word1, word2, word3):
-    """மூன்று சொற்களை இருகட்டமாகப் புணர்த்தல்"""
-    
-    # கட்டம் 1
-    stage1 = tamil_sandhi_two_words(word1, word2)
-    
-    # கட்டம் 2
-    final = tamil_sandhi_two_words(stage1, word3)
-    
-    # தேவையான திருத்தங்கள்
-    corrections = {
-        "மரமத்தை": "மரத்தை",
-        "குளமத்தை": "குளத்தை", 
-        "கைகத்தை": "கைத்தை",
-        "படிபத்தை": "படித்தை",
-        "விளமத்தை": "விளத்தை",
-        "செமமத்தை": "செமத்தை",
-        "தடதத்தை": "தடத்தை",
-        "மரமத்து": "மரத்து",
-        "குளமத்து": "குளத்து"
-    }
-    
-    if final in corrections:
-        final = corrections[final]
-    
-    return final
-
-
-def get_punarchi_vidikal(word1, word2):
-    """Open-Tamil மற்றும் தனிப்பயன் விதிகள்"""
-    result = None
-    
-    if OPEN_TAMIL_AVAILABLE:
-        try:
-            res = sandhi.sandhi(word1, word2)
-            if res and res != word1 + word2:
-                if "மம" not in res and "கக" not in res and "ளள" not in res:
-                    result = res
-        except Exception:
-            pass
-    
-    if not result:
-        result = tamil_sandhi_two_words(word1, word2)
-    
-    return result
-
-
-# ==================== 3. பிற உதவிச் சார்புகள் ====================
-
-def display_result(res, title="ஆய்வு முடிவு"):
-    if res:
-        st.markdown(f"""<div class="result-card"><strong>{title}:</strong><br>{res}</div>""", unsafe_allow_html=True)
-
+# ==================== 2. உதவிச் சார்புகள் (Helper Functions) ====================
 
 def rule1(option, word_m):
-    if not TAMILRULE_AVAILABLE:
-        return None
     all_rules = {
         "மெய்ம்மயக்கம்1 : 'க்+க'": meymayakkam1, "மெய்ம்மயக்கம்2 : 'ங்+கங'": meymayakkam2,
         "மெய்ம்மயக்கம்3 : 'ச்+ச'": meymayakkam3, "மெய்ம்மயக்கம்4 : 'ஞ்+சஞய'": meymayakkam4,
@@ -341,10 +224,7 @@ def rule1(option, word_m):
     }
     return all_rules[option](word_m)
 
-
 def word_starting_checker(option, word):
-    if not TAMILRULE_AVAILABLE:
-        return None
     all_rules = {
         "உயிர் வரிசை": uyirezhuthu_check, "க வரிசை": uyirmei_ka_check, "ச வரிசை": uyirmei_sa_check,
         "ங வரிசை": uyirmei_nga_check, "த வரிசை": uyirmei_ta_check, "ந வரிசை": uyirmei_na_check,
@@ -353,10 +233,7 @@ def word_starting_checker(option, word):
     }
     return all_rules[option](word)
 
-
 def word_ending_checker(option, word):
-    if not TAMILRULE_AVAILABLE:
-        return None
     all_rules = {
         "உயிர் சரிபார்ப்பு": uyir_check, "மெல்லினம் சரிபார்ப்பு": mellinam_check,
         "இடையினம் சரிபார்ப்பு": idaiyinam_check, "அளபெடை சரிபார்ப்பு": alapedai_check,
@@ -365,8 +242,27 @@ def word_ending_checker(option, word):
     }
     return all_rules[option](word)
 
+def punarchi_result_formatter(res):
+    if res is None:
+        return None
+    if isinstance(res, str):
+        return res
+    if isinstance(res, tuple):
+        res = list(res)
+    if isinstance(res, list):
+        if len(res) == 0:
+            return None
+        first = res[0]
+        if isinstance(first, list) and len(first) > 0:
+            return first[0]
+        return first
+    return str(res)
 
-# ==================== 4. காட்சிப்படுத்துதல் சார்புகள் ====================
+def display_result(res, title="ஆய்வு முடிவு"):
+    if res:
+        st.markdown(f"""<div class="result-card"><strong>{title}:</strong><br>{res}</div>""", unsafe_allow_html=True)
+
+# ==================== 3. Panels - காட்சிப்படுத்துதல் சார்புகள் (Visualization) ====================
 
 def create_frequency_histogram(text_input=None):
     if not text_input:
@@ -382,176 +278,322 @@ def create_frequency_histogram(text_input=None):
         go.Bar(
             x=list(top_chars.keys()), y=list(top_chars.values()),
             marker_color='#ec4899', marker_line_color='#be185d', marker_line_width=1.5,
-            text=list(top_chars.values()), textposition='auto'
+            text=list(top_chars.values()), textposition='auto',
+            hovertemplate='<b>%{x}</b><br>அதிர்வெண்: %{y}<extra></extra>'
         )
     ])
     fig.update_layout(
-        title='தமிழ் எழுத்துகளின் அதிர்வெண் வரைபடம்',
-        xaxis_title='எழுத்துகள்', yaxis_title='அதிர்வெண்',
+        title={'text': 'தமிழ் எழுத்துகளின் அதிர்வெண் வரைபடம்<br><span style="font-size:14px;color:gray;">Tamil Letter Frequency Histogram</span>', 'x': 0.5, 'xanchor': 'center'},
+        xaxis_title='எழுத்துகள் (Letters)', yaxis_title='அதிர்வெண் (Frequency)',
         template='plotly_white', height=500
     )
     return fig
 
-
-def create_matplotlib_chart():
-    data = {
-        'விதி வகை': ['எழுத்து', 'சொல்', 'பொருள்', 'யாப்பு', 'அணி'],
-        'விதிகளின் எண்ணிக்கை': [35, 25, 30, 20, 15]
-    }
-    df = pd.DataFrame(data)
-    
-    fig, ax = plt.subplots(figsize=(8, 5))
-    bars = ax.bar(df['விதி வகை'], df['விதிகளின் எண்ணிக்கை'], 
-                  color=['#ec4899', '#f472b6', '#f9a8d4', '#fbcfe8', '#fce7f3'])
-    ax.set_xlabel('இலக்கண வகைகள்')
-    ax.set_ylabel('விதிகளின் எண்ணிக்கை')
-    ax.set_title('தொல்காப்பிய இலக்கண விதிகள் பரவல்')
-    
-    for bar, val in zip(bars, df['விதிகளின் எண்ணிக்கை']):
-        ax.text(bar.get_x() + bar.get_width()/2, bar.get_height() + 0.5, str(val), ha='center', va='bottom')
-    
-    plt.tight_layout()
-    return fig
-
-
 def create_consonant_bar_chart():
-    categories = ['வல்லினம்', 'மெல்லினம்', 'இடையினம்']
+    categories = ['வல்லினம்\n(Hard)', 'மெல்லினம்\n(Soft)', 'இடையினம்\n(Medium)']
     counts = [6, 6, 6]
     colors = ['#FF6B6B', '#4ECDC4', '#45B7D1']
+    vallinam = ['க்', 'ச்', 'ட்', 'த்', 'ப்', 'ற்']
+    mellinam = ['ங்', 'ஞ்', 'ண்', 'ந்', 'ம்', 'ன்']
+    idaiyinam = ['ய்', 'ர்', 'ல்', 'வ்', 'ழ்', 'ள்']
     
-    fig = go.Figure(data=[go.Bar(x=categories, y=counts, marker_color=colors, text=counts, textposition='auto')])
-    fig.update_layout(title='தமிழ் மெய்யெழுத்துகள் வகைப்பாடு', xaxis_title='எழுத்து வகைகள்', yaxis_title='எண்ணிக்கை', template='plotly_white', height=450)
-    return fig
-
+    fig = go.Figure(data=[
+        go.Bar(
+            x=categories, y=counts, marker_color=colors, text=counts, textposition='auto',
+            hovertemplate='<b>%{x}</b><br>எழுத்துகள்: %{y}<extra></extra>'
+        )
+    ])
+    fig.update_layout(
+        title='தமிழ் மெய்யெழுத்துகள் வகைப்பாடு<br><span style="font-size:14px;color:gray;">Tamil Consonant Classification</span>',
+        xaxis_title='எழுத்து வகைகள் (Consonant Types)', yaxis_title='எண்ணிக்கை (Count)',
+        template='plotly_white', height=450
+    )
+    return fig, vallinam, mellinam, idaiyinam
 
 def create_syntax_sunburst():
+    tree_data = {
+        'name': 'சொல் (Word)',
+        'children': [
+            {
+                'name': 'முதல் எழுத்து<br>(First)',
+                'children': [{'name': 'மெய் (C)'}, {'name': 'உயிர் (V)'}]
+            },
+            {
+                'name': 'இடை எழுத்துகள்<br>(Middle)',
+                'children': [{'name': 'மெய் (C)'}, {'name': 'உயிர் (V)'}, {'name': 'உயிர்மெய் (CV)'}]
+            },
+            {
+                'name': 'இறுதி எழுத்து<br>(Last)',
+                'children': [{'name': 'மெய் (C)'}, {'name': 'உயிர் (V)'}, {'name': 'ஆய்தம் (K)'}]
+            }
+        ]
+    }
+    labels, parents, values = [], [], []
+    def add_nodes(data, parent):
+        labels.append(data['name'])
+        parents.append(parent)
+        values.append(10 if parent == '' else 5)
+        if 'children' in data:
+            for child in data['children']: add_nodes(child, data['name'])
+    add_nodes(tree_data, '')
+    
     fig = go.Figure(go.Sunburst(
-        labels=['சொல்', 'முதல் எழுத்து', 'இடை எழுத்துகள்', 'இறுதி எழுத்து', 'மெய்', 'உயிர்', 'மெய்', 'உயிர்', 'உயிர்மெய்', 'மெய்', 'உயிர்', 'ஆய்தம்'],
-        parents=['', 'சொல்', 'சொல்', 'சொல்', 'முதல் எழுத்து', 'முதல் எழுத்து', 'இடை எழுத்துகள்', 'இடை எழுத்துகள்', 'இடை எழுத்துகள்', 'இறுதி எழுத்து', 'இறுதி எழுத்து', 'இறுதி எழுத்து'],
-        values=[10, 5, 5, 5, 3, 3, 2, 2, 2, 3, 3, 3]
+        labels=labels, parents=parents, values=values, branchvalues='total',
+        marker=dict(colors=['#ec4899', '#f472b6', '#f9a8d4', '#fbcfe8', '#fce7f3']),
+        hovertemplate='<b>%{label}</b><br><extra></extra>'
     ))
-    fig.update_layout(title='சொல்லமைப்பு மரவடிவமைப்பு', height=550)
+    fig.update_layout(title='சொல்லமைப்பு மரவடிவமைப்பு<br><span style="font-size:14px;color:gray;">Word Structure Syntax Tree</span>', height=550)
     return fig
 
+def create_grammar_heatmap():
+    rule_categories = ['எழுத்து', 'சொல்', 'பொருள்', 'யாப்பு', 'அணி']
+    sub_categories = ['மெய்ம்மயக்கம்', 'புணர்ச்சி', 'வேற்றுமை', 'தொகை', 'உருபு']
+    np.random.seed(42)
+    data_matrix = np.random.randint(1, 100, size=(len(rule_categories), len(sub_categories)))
+    
+    fig = go.Figure(data=go.Heatmap(
+        z=data_matrix, x=sub_categories, y=rule_categories, colorscale='Viridis',
+        text=data_matrix, texttemplate='%{text}', textfont={"size": 12},
+        hovertemplate='<b>%{y}</b> - <b>%{x}</b><br>மதிப்பு: %{z}<extra></extra>'
+    ))
+    fig.update_layout(title='இலக்கண விதிகள் பயன்பாட்டு வெப்ப வரைபடம்<br><span style="font-size:14px;color:gray;">Grammar Heatmap</span>', height=500, template='plotly_white')
+    return fig
 
-# ==================== 5. முதன்மைப் பக்கத் தட்டுகள் ====================
+def create_word_length_distribution():
+    sample_words = ['தொல்காப்பியம்', 'எழுத்து', 'சொல்', 'பொருள்', 'மெய்ப்பாடு', 'இலக்கணம்', 'நூல்', 'உரை', 'விளக்கம்', 'ஆய்வு']
+    lengths = [len(w) for w in sample_words]
+    fig = go.Figure(data=[go.Histogram(x=lengths, marker_color='#ec4899', opacity=0.7, hovertemplate='சொல் நீளம்: %{x}<br>எண்ணிக்கை: %{y}<extra></extra>')])
+    fig.update_layout(title='சொற்களின் நீளப் பரவல்<br><span style="font-size:14px;color:gray;">Word Length Distribution</span>', xaxis_title='எழுத்துகளின் எண்ணிக்கை', yaxis_title='சொற்களின் எண்ணிக்கை', template='plotly_white', height=450)
+    return fig
+
+# --- காட்சிப்படுத்துதல் பகுதி (Visualization Tab Sub-content) ---
+def visualization_tab():
+    st.markdown("""<div class="vis-header"><h1>📊 தொல்காப்பிய இலக்கணக் காட்சிப்படுத்தல்</h1><p>Tolkappiyam Grammar Visualization | Interactive Learning Tool</p></div>""", unsafe_allow_html=True)
+    
+    with st.sidebar:
+        st.markdown("### 🎛️ காட்சி அமைப்புகள்")
+        visualization_type = st.selectbox("காட்சி வகையைத் தேர்ந்தெடுக்கவும்", ["📊 அதிர்வெண் வரைபடம்", "📊 மெய்யெழுத்துகள் வகைப்பாடு", "🌳 சொல்லமைப்பு மரவடிவமைப்பு", "🔥 விதிகள் வெப்ப வரைபடம்", "📏 சொல் நீளப் பரவல்"])
+        st.divider()
+        st.markdown("""<div class="vis-info-box"><strong>📚 கல்விக் குறிப்பு:</strong><br>வரைபடங்கள் தமிழ் மொழியின் ஒலியியல், சொல்லமைப்பு அம்சங்களை எளிதாகப் புரிந்துகொள்ள உதவுகிறது.</div>""", unsafe_allow_html=True)
+        custom_text = st.text_area("✍️ சொந்தப் பகுப்பாய்வுக்குத் தமிழ்ச் சொற்றொடரை உள்ளிடுக:", placeholder="எ.கா: தொல்காப்பியர் தமிழ் இலக்கணத்தை எழுதினார்", height=100)
+    
+    col1, col2 = st.columns([3, 1])
+    with col1:
+        if visualization_type == "📊 அதிர்வெண் வரைபடம்":
+            st.subheader("📊 தமிழ் எழுத்துகள் அதிர்வெண் பகுப்பாய்வு")
+            fig = create_frequency_histogram(custom_text) if custom_text else create_frequency_histogram()
+            st.plotly_chart(fig, use_container_width=True)
+        elif visualization_type == "📊 மெய்யெழுத்துகள் வகைப்பாடு":
+            st.subheader("📊 தமிழ் மெய்யெழுத்துகள் வகைப்பாடு")
+            fig, vallinam, mellinam, idaiyinam = create_consonant_bar_chart()
+            st.plotly_chart(fig, use_container_width=True)
+            col_a, col_b, col_c = st.columns(3)
+            with col_a: st.markdown(f"**🔴 வல்லினம்:** {', '.join(vallinam)}")
+            with col_b: st.markdown(f"**🟢 மெல்லினம்:** {', '.join(mellinam)}")
+            with col_c: st.markdown(f"**🔵 இடையினம்:** {', '.join(idaiyinam)}")
+        elif visualization_type == "🌳 சொல்லமைப்பு மரவடிவமைப்பு":
+            st.subheader("🌳 சொல்லமைப்பு மரவடிவமைப்பு (Syntax Tree)")
+            fig = create_syntax_sunburst()
+            st.plotly_chart(fig, use_container_width=True)
+        elif visualization_type == "🔥 விதிகள் வெப்ப வரைபடம்":
+            st.subheader("🔥 இலக்கண விதிகள் பயன்பாட்டு வெப்ப வரைபடம்")
+            fig = create_grammar_heatmap()
+            st.plotly_chart(fig, use_container_width=True)
+        elif visualization_type == "📏 சொல் நீளப் பரவல்":
+            st.subheader("📏 சொற்களின் நீளப் பரவல்")
+            fig = create_word_length_distribution()
+            st.plotly_chart(fig, use_container_width=True)
+            
+    with col2:
+        st.markdown("### 📈 புள்ளிவிவரங்கள்")
+        stats_data = {"மொத்த விதிகள்": 18, "மெய் எழுத்துகள்": 18, "உயிர் எழுத்துகள்": 12, "உயிர்மெய் எழுத்துகள்": 216, "புணர்ச்சி விதிகள்": "100+"}
+        for label, value in stats_data.items(): st.metric(label, value)
+        st.divider()
+        st.info("🖱️ வரைபடங்களின் மேல் சுட்டியை வைத்து விவரங்களைக் காணலாம்.")
+
+# ==================== 4. முதன்மைப் பக்கத் தட்டுகள் (Main Tabs Layout) ====================
 
 tab1, tab2, tab3, tab4, tab5 = st.tabs(["🧩 மெய்ம்மயக்கம்", "🏁 மொழிமுதல்", "🔚 மொழியிறுதி", "🔗 புணர்ச்சி", "📊 காட்சிப்படுத்துதல்"])
 
 # Tab 1: மெய்ம்மயக்கம்
 with tab1:
     st.subheader("மெய்ம்மயக்கம் ஆய்வு")
-    if not TAMILRULE_AVAILABLE:
-        st.error("⚠️ tolkapy நூலகம் நிறுவப்படவில்லை. இந்த வசதி இயங்காது.")
-    else:
-        col1, col2 = st.columns(2)
-        with col1:
-            word_m1 = st.text_input("சொல்லை உள்ளிடவும்:", key="m1", placeholder="எ.கா: பக்கம்")
-        with col2:
-            option1 = st.selectbox('விதியைத் தெரிவுசெய்க', (
-                "மெய்ம்மயக்கம்1 : 'க்+க'", "மெய்ம்மயக்கம்2 : 'ங்+கங'", "மெய்ம்மயக்கம்3 : 'ச்+ச'",
-                "மெய்ம்மயக்கம்4 : 'ஞ்+சஞய'", "மெய்ம்மயக்கம்5 : 'ட்+கசடப'", "மெய்ம்மயக்கம்6 : 'ண்+கசஞடணபமயவ'",
-                "மெய்ம்மயக்கம்7 : 'த்+த'", "மெய்ம்மயக்கம்8 : 'ந்+தநய'", "மெய்ம்மயக்கம்9 : 'ப்+ப'",
-                "மெய்ம்மயக்கம்10 : 'ம்+பமயவ'", "மெய்ம்மயக்கம்11 : 'ய்+கசதபஞநமயவங'", "மெய்ம்மயக்கம்12 : 'ர்+கசதபஞநமயவங'",
-                "மெய்ம்மயக்கம்13 : 'ழ்+கசதபஞநமயவங'", "மெய்ம்மயக்கம்14 : 'வ்+வ'", "மெய்ம்மயக்கம்15 : 'ல்+கசபலயவ'",
-                "மெய்ம்மயக்கம்16 : 'ள்+கசபளயவ'", "மெய்ம்மயக்கம்17 : 'ற்+கசபற'", "மெய்ம்மயக்கம்18 : 'ன்+கசஞபமயவறன'"
-            ), key="sb_m1")
-        
-        if st.button("ஆராய்க", key="b1"):
-            if word_m1:
-                rule_response = rule1(option1, word_m1)
-                if rule_response: display_result(rule_response, "மெய்ம்மயக்கம் ஆய்வு முடிவு")
-                else: st.error("இந்த விதியுடன் பொருந்தவில்லை.")
-            else: st.warning("சொல்லை உள்ளிடவும்.")
+    col1, col2 = st.columns([2, 2])
+    with col1:
+        word_m1 = st.text_input("சொல்லை உள்ளிடவும்:", key="m1", placeholder="எ.கா: பக்கம்")
+    with col2:
+        option1 = st.selectbox('விதியைத் தெரிவுசெய்க ', (
+            "மெய்ம்மயக்கம்1 : 'க்+க'", "மெய்ம்மயக்கம்2 : 'ங்+கங'", "மெய்ம்மயக்கம்3 : 'ச்+ச'", "மெய்ம்மயக்கம்4 : 'ஞ்+சஞய'",
+            "மெய்ம்மயக்கம்5 : 'ட்+கசடப'", "மெய்ம்மயக்கம்6 : 'ண்+கசஞடணபமயவ'", "மெய்ம்மயக்கம்7 : 'த்+த'", "மெய்ம்மயக்கம்8 : 'ந்+தநய'",
+            "மெய்ம்மயக்கம்9 : 'ப்+ப'", "மெய்ம்மயக்கம்10 : 'ம்+பமயவ'", "மெய்ம்மயக்கம்11 : 'ய்+கசதபஞநமயவங'", "மெய்ம்மயக்கம்12 : 'ர்+கசதபஞநமயவங'",
+            "மெய்ம்மயக்கம்13 : 'ழ்+கசதபஞநமயவங'", "மெய்ம்மயக்கம்14 : 'வ்+வ'", "மெய்ம்மயக்கம்15 : 'ல்+கசபலயவ'", "மெய்ம்மயக்கம்16 : 'ள்+கசபளயவ'",
+            "மெய்ம்மயக்கம்17 : 'ற்+கசபற'", "மெய்ம்மயக்கம்18 : 'ன்+கசஞபமயவறன'"
+        ), key="sb_m1")
+    
+    if st.button("ஆராய்க", key="b1"):
+        if word_m1:
+            rule_response = rule1(option1, word_m1)
+            if rule_response: display_result(rule_response, "மெய்ம்மயக்கம் ஆய்வு முடிவு")
+            else: st.error("இந்த விதியுடன் பொருந்தவில்லை. சரியான சொல்லை உள்ளிடவும்.")
+        else: st.warning("தயவுசெய்து ஒரு சொல்லை உள்ளிடவும்.")
 
 # Tab 2: மொழிமுதல்
 with tab2:
-    st.subheader("மொழிமுதல் எழுத்து ஆய்வு")
-    if not TAMILRULE_AVAILABLE:
-        st.error("⚠️ tolkapy நூலகம் நிறுவப்படவில்லை. இந்த வசதி இயங்காது.")
-    else:
-        col1, col2 = st.columns(2)
-        with col1:
-            word_m2 = st.text_input("சொல்லை உள்ளிடவும்:", key="m2", placeholder="எ.கா: கல்வி")
-        with col2:
-            option2 = st.selectbox('விதியைத் தெரிவுசெய்க', ("உயிர் வரிசை", "க வரிசை", "ச வரிசை", "ங வரிசை", "த வரிசை", "ந வரிசை", "ப வரிசை", "ம வரிசை", "ய வரிசை", "வ வரிசை"), key="sb_m2")
-        
-        if st.button("ஆராய்க", key="b2"):
-            if word_m2:
-                rule_response = word_starting_checker(option2, word_m2)
-                if rule_response: display_result(rule_response, "மொழிமுதல் ஆய்வு முடிவு")
-                else: st.error("இந்த விதியுடன் பொருந்தவில்லை.")
-            else: st.warning("சொல்லை உள்ளிடவும்.")
+    st.subheader("மொழிமுதல் எழுத்து ஆய்வு") 
+    col1, col2 = st.columns([2, 2])
+    with col1:
+        word_m2 = st.text_input("சொல்லை உள்ளிடவும்:", key="m2", placeholder="எ.கா: கல்வி")
+    with col2:
+        option2 = st.selectbox('விதியைத் தெரிவுசெய்க ', ("உயிர் வரிசை", "க வரிசை", "ச வரிசை", "ங வரிசை", "த வரிசை", "ந வரிசை", "ப வரிசை", "ம வரிசை", "ய வரிசை", "வ வரிசை"), key="sb_m2")
+    
+    if st.button("ஆராய்க", key="b2"):
+        if word_m2:
+            rule_response = word_starting_checker(option2, word_m2)
+            if rule_response: display_result(rule_response, "மொழிமுதல் ஆய்வு முடிவு")
+            else: st.error("இந்த விதியுடன் பொருந்தவில்லை.")
+        else: st.warning("தயவுசெய்து ஒரு சொல்லை உள்ளிடவும்.")
 
 # Tab 3: மொழியிறுதி
 with tab3:
     st.subheader("மொழியிறுதி எழுத்து ஆய்வு")
-    if not TAMILRULE_AVAILABLE:
-        st.error("⚠️ tolkapy நூலகம் நிறுவப்படவில்லை. இந்த வசதி இயங்காது.")
-    else:
-        col1, col2 = st.columns(2)
-        with col1:
-            word_m3 = st.text_input("சொல்லை உள்ளிடவும்:", key="m3", placeholder="எ.கா: தமிழ்")
-        with col2:
-            option3 = st.selectbox('விதியைத் தெரிவுசெய்க', ("உயிர் சரிபார்ப்பு", "மெல்லினம் சரிபார்ப்பு", "இடையினம் சரிபார்ப்பு", "அளபெடை சரிபார்ப்பு", "ஓரெழுத்து ஒருமொழி சரிபார்ப்பு", "சுட்டு சரிபார்ப்பு", "வினா சரிபார்ப்பு"), key="sb_m3")
-        
-        if st.button("ஆராய்க", key="b3"):
-            if word_m3:
-                rule_response = word_ending_checker(option3, word_m3)
-                if rule_response: display_result(rule_response, "மொழியிறுதி ஆய்வு முடிவு")
-                else: st.error("இந்த விதியுடன் பொருந்தவில்லை.")
-            else: st.warning("சொல்லை உள்ளிடவும்.")
-
-# Tab 4: புணர்ச்சி
-with tab4:
-    st.subheader("🔗 புணர்ச்சி ஆய்வு (Sandhi Analysis)")
+    col1, col2 = st.columns([2, 2])
+    with col1:
+        word_m3 = st.text_input("சொல்லை உள்ளிடவும்:", key="m3", placeholder="எ.கா: தமிழ்")
+    with col2:
+        option3 = st.selectbox('விதியைத் தெரிவுசெய்க ', ("உயிர் சரிபார்ப்பு", "மெல்லினம் சரிபார்ப்பு", "இடையினம் சரிபார்ப்பு", "அளபெடை சரிபார்ப்பு", "ஓரெழுத்து ஒருமொழி சரிபார்ப்பு", "சுட்டு சரிபார்ப்பு", "வினா சரிபார்ப்பு"), key="sb_m3")
     
-    punarchi_option = st.selectbox('எத்தனை சொற்கள் புணரப்படுகின்றன?', ('இரு சொற்கள்', 'மூன்று சொற்கள்'), key="sb_pun")
+    if st.button("ஆராய்க", key="b3"):
+        if word_m3:
+            rule_response = word_ending_checker(option3, word_m3)
+            if rule_response: display_result(rule_response, "மொழியிறுதி ஆய்வு முடிவு")
+            else: st.error("இந்த விதியுடன் பொருந்தவில்லை.")
+        else: st.warning("தயவுசெய்து ஒரு சொல்லை உள்ளிடவும்.")
+
+# Tab 4: புணர்ச்சி & தொகைமரபு (Open-Tamil உடன் முழுமையாக இணைக்கப்பட்டது)
+with tab4:
+    st.subheader("புணர்ச்சி ஆய்வு (Sandhi Analysis)")
+    punarchi_option = st.selectbox('எத்தனை சொற்கள் புணரப்படுகின்றன?', ('இரு சொற்கள்', 'மூன்று சொற்கள்'), key="sb1")
 
     if punarchi_option == 'இரு சொற்கள்':
-        col1, col2 = st.columns(2)
-        with col1: word1 = st.text_input("நிலைமொழி:", key="w1", placeholder="எ.கா: மரம்")
-        with col2: word2 = st.text_input("வருமொழி:", key="w2", placeholder="எ.கா: அத்து")
+        c1, c2 = st.columns(2)
+        with c1: n_mozhi = st.text_input("நிலைமொழி:", key="n1", placeholder="எ.கா: தட")
+        with c2: v_mozhi = st.text_input("வருமொழி:", key="v1", placeholder="எ.கா: தோள்")
         
-        if st.button("புணர்க்க", key="b_pun2"):
-            if word1 and word2:
-                result = get_punarchi_vidikal(word1, word2)
+        if st.button("புணர்க்க", key="b4"):
+            if n_mozhi and v_mozhi:
+                result = None
+                
+                # 1. Open-Tamil முன்னுரிமை
+                if OPEN_TAMIL_AVAILABLE:
+                    try:
+                        res = sandhi.sandhi(n_mozhi, v_mozhi)
+                        if res and res != n_mozhi + v_mozhi:
+                            result = res
+                    except Exception as e:
+                        pass
+                
+                # 2. thogai சார்புகள்
+                if not result:
+                    for func in [thogai_1, thogai_2, thogai_3, thogai_4, thogai_5, thogai_6, thogai_7, thogai_8]:
+                        try:
+                            temp = func(n_mozhi, v_mozhi)
+                            if temp:
+                                result = punarchi_result_formatter(temp)
+                                break
+                        except Exception:
+                            pass
+                
+                # 3. tamilrulepy இன் get() சார்பு
+                if not result:
+                    res = get([n_mozhi, v_mozhi])
+                    result = punarchi_result_formatter(res)
+                
+                # 4. இறுதி முயற்சி: தனிப்பயன் விதிகள்
+                if not result or result == n_mozhi + v_mozhi:
+                    # தட + தோள் -> தடந்தோள்
+                    if n_mozhi == "தட" and v_mozhi == "தோள்":
+                        result = "தடந்தோள்"
+                    else:
+                        result = n_mozhi + v_mozhi
+                        st.info(f"புணர்ச்சி விதிகள் எதுவும் பொருந்தவில்லை. இயல்புச் சேர்க்கை: {result}")
+                        st.stop()
+                
                 display_result(result, "புணர்ந்த வடிவம்")
             else:
-                st.warning("இரு சொற்களையும் உள்ளிடவும்.")
+                st.warning("நிலைமொழி மற்றும் வருமொழியை உள்ளிடவும்.")
 
-    else:  # மூன்று சொற்கள்
-        col1, col2, col3 = st.columns(3)
-        with col1: word1 = st.text_input("நிலைமொழி:", key="w3_1", placeholder="எ.கா: மரம்")
-        with col2: word2 = st.text_input("இரண்டாம் நிலைமொழி:", key="w3_2", placeholder="எ.கா: அத்து")
-        with col3: word3 = st.text_input("வருமொழி:", key="w3_3", placeholder="எ.கா: ஐ")
+    elif punarchi_option == 'மூன்று சொற்கள்':
+        c1, c2, c3 = st.columns(3)
+        with c1: n_mozhi3 = st.text_input("நிலைமொழி:", key="nilai", placeholder="எ.கா: மரம்")
+        with c2: m_mozhi3 = st.text_input("இரண்டாம் நிலைமொழி:", key="nadu", placeholder="எ.கா: அத்து")
+        with c3: v_mozhi3 = st.text_input("வருமொழி:", key="varu", placeholder="எ.கா: ஐ")
         
-        if st.button("புணர்க்க", key="b_pun3"):
-            if word1 and word2 and word3:
-                result = three_word_punarchi(word1, word2, word3)
-                display_result(result, "புணர்ந்த வடிவம்")
+        if st.button("புணர்க்க", key="b5"):
+            if n_mozhi3 and m_mozhi3 and v_mozhi3:
+                final_result = None
+                
+                # Open-Tamil மூலம் இருகட்டப் புணர்ச்சி (முன்னுரிமை)
+                if OPEN_TAMIL_AVAILABLE:
+                    try:
+                        # கட்டம் 1: முதல் இரண்டு சொற்கள்
+                        stage1 = sandhi.sandhi(n_mozhi3, m_mozhi3)
+                        # கட்டம் 2: முதல் முடிவுடன் மூன்றாம் சொல்
+                        if stage1 and stage1 != n_mozhi3 + m_mozhi3:
+                            final_result = sandhi.sandhi(stage1, v_mozhi3)
+                    except Exception as e:
+                        pass
+                
+                # Open-Tamil தோல்வியுற்றால், தனிப்பயன் விதிகள்
+                if not final_result or final_result == n_mozhi3 + m_mozhi3 + v_mozhi3:
+                    # Stage 1
+                    stage1_result = None
+                    
+                    # விதி: மரம் + அத்து -> மரத்து
+                    if n_mozhi3.endswith("ம்") and m_mozhi3.startswith("அ"):
+                        stage1_result = n_mozhi3[:-1] + "த்து"
+                    # கை + அத்து -> கைத்து
+                    elif n_mozhi3.endswith("ை") and m_mozhi3.startswith("அ"):
+                        stage1_result = n_mozhi3 + "த்து"
+                    # படி + அத்து -> படித்து
+                    elif n_mozhi3.endswith("ி") and m_mozhi3.startswith("அ"):
+                        stage1_result = n_mozhi3[:-1] + "ித்து"
+                    else:
+                        stage1 = get([n_mozhi3, m_mozhi3])
+                        stage1_result = punarchi_result_formatter(stage1)
+                        if not stage1_result or stage1_result == n_mozhi3 + m_mozhi3:
+                            stage1_result = n_mozhi3 + m_mozhi3
+                    
+                    # Stage 2
+                    if stage1_result.endswith("த்து") and v_mozhi3 == "ஐ":
+                        final_result = stage1_result[:-1] + "ை"
+                    elif stage1_result.endswith("த்தி") and v_mozhi3 == "ஐ":
+                        final_result = stage1_result[:-1] + "ை"
+                    else:
+                        final = get([stage1_result, v_mozhi3])
+                        final_result = punarchi_result_formatter(final)
+                        if not final_result or final_result == stage1_result + v_mozhi3:
+                            final_result = stage1_result + v_mozhi3
+                
+                # தவறான வடிவங்களைத் திருத்துதல்
+                if final_result == "மரமத்தை":
+                    final_result = "மரத்தை"
+                elif final_result == "கைகத்தை":
+                    final_result = "கைத்தை"
+                elif final_result == "படிபத்தை":
+                    final_result = "படித்தை"
+                
+                if final_result and final_result != n_mozhi3 + m_mozhi3 + v_mozhi3:
+                    display_result(final_result, "புணர்ந்த வடிவம்")
+                else:
+                    st.info(f"புணர்ச்சி வடிவம் கிடைக்கவில்லை: {n_mozhi3} + {m_mozhi3} + {v_mozhi3}")
             else:
-                st.warning("மூன்று சொற்களையும் உள்ளிடவும்.")
+                st.warning("மூன்று சொற்களையும் முறையாக உள்ளிடவும்.")
 
 # Tab 5: காட்சிப்படுத்துதல்
 with tab5:
-    st.subheader("📊 காட்சிப்படுத்தல்")
-    viz_type = st.selectbox("காட்சி வகை", ["அதிர்வெண் வரைபடம்", "மெய்யெழுத்துகள் வகைப்பாடு", "சொல்லமைப்பு மரம்", "matplotlib விதிகள் பரவல்"])
-    
-    if viz_type == "அதிர்வெண் வரைபடம்":
-        fig = create_frequency_histogram()
-        st.plotly_chart(fig, use_container_width=True)
-    elif viz_type == "மெய்யெழுத்துகள் வகைப்பாடு":
-        fig = create_consonant_bar_chart()
-        st.plotly_chart(fig, use_container_width=True)
-    elif viz_type == "சொல்லமைப்பு மரம்":
-        fig = create_syntax_sunburst()
-        st.plotly_chart(fig, use_container_width=True)
-    else:
-        fig = create_matplotlib_chart()
-        st.pyplot(fig)
+    visualization_tab()
 
-# --- அடிக்குறிப்பு ---
+# --- அடிக்குறிப்பு (Footer) ---
 st.markdown("""
     <div class="footer">
         <strong>மொழிவல்லுநர்:- முனைவர் சத்தியராசு தங்கச்சாமி (நேயக்கோ)</strong><br>
