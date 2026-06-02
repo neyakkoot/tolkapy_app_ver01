@@ -1,8 +1,7 @@
 streamlit
 plotly
 numpy
+networkx
 matplotlib
-open-tamil
 pandas
-tamil
-tamilrulepy
+open-tamil
