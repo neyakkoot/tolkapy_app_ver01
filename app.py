@@ -4,6 +4,10 @@ import os
 import re
 from collections import Counter
 
+# matplotlib தமிழ் எழுத்துகளுக்கான அமைப்பு
+plt.rcParams['font.sans-serif'] = ['Devanagari', 'Arial Unicode MS', 'Noto Sans Tamil']
+plt.rcParams['axes.unicode_minus'] = False
+
 # --- Open-Tamil நூலகம் (முன்னுரிமை) ---
 try:
     import tamil
