@@ -1,11 +1,13 @@
 import streamlit as st
+import matplotlib.pyplot as plt  # இந்த வரியைச் சேர்க்கவும்
 import importlib.util
 import os
 import re
 from collections import Counter
 
-# matplotlib தமிழ் எழுத்துகளுக்கான அமைப்பு
-plt.rcParams['font.sans-serif'] = ['Devanagari', 'Arial Unicode MS', 'Noto Sans Tamil']
+# matplotlib எழுத்துரு அமைப்பு (நிச்சயமாக import செய்த பிறகு)
+plt.rcParams['font.family'] = 'sans-serif'
+plt.rcParams['font.sans-serif'] = ['Noto Sans Tamil', 'Arial Unicode MS', 'DejaVu Sans']
 plt.rcParams['axes.unicode_minus'] = False
 
 # --- Open-Tamil நூலகம் (முன்னுரிமை) ---
