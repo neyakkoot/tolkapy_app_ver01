@@ -1,3 +1,4 @@
 fonts-noto
 fonts-noto-cjk
 fonts-noto-unhinted
+fonts-indic
